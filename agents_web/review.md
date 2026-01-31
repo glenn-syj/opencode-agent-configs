@@ -7,6 +7,9 @@ tools:
   read: true
   grep: true
   glob: true
+  list: true
+  question: true
+  skill: true
   write: false
   edit: false
   bash: false

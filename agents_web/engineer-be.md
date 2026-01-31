@@ -12,7 +12,11 @@ tools:
   edit: true
   bash: true
   todowrite: true
-  toforead: true
+  todoread: true
+  list: true
+  question: true
+  patch: true
+  skill: true
 permission:
   bash:
     "npm *": allow
@@ -26,8 +30,7 @@ permission:
     "systemctl *": ask
     "sudo *": ask
     "*": ask
-  task:
-    librarian: ask
+
 ---
 
 # BACKEND ENGINEER

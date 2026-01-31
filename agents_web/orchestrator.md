@@ -6,10 +6,13 @@ temperature: 0.2
 tools:
   task: true
   todowrite: true
-  toforead: true
+  todoread: true
   read: true
   grep: true
   glob: true
+  list: true
+  question: true
+  skill: true
   write: false
   edit: false
   bash: false

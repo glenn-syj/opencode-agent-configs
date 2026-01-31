@@ -9,10 +9,13 @@ tools:
   glob: true
   webfetch: true
   todowrite: true
-  toforead: true
+  todoread: true
   write: true
   edit: true
-  bash: false
+  bash: true
+  list: true
+  question: true
+  skill: true
 ---
 
 # FULL-STACK WEB ARCHITECT

@@ -12,7 +12,11 @@ tools:
   edit: true
   bash: true
   todowrite: true
-  toforead: true
+  todoread: true
+  list: true
+  question: true
+  patch: true
+  skill: true
 permission:
   bash:
     "npm *": allow
@@ -22,8 +26,7 @@ permission:
     "node *": allow
     "npx *": allow
     "*": ask
-  task:
-    librarian: ask
+
 ---
 
 # FRONTEND ENGINEER
