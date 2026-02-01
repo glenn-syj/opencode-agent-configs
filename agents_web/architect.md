@@ -14,7 +14,7 @@ tools:
   edit: true
   bash: true
   list: true
-  question: true
+  question: false
   skill: true
 ---
 

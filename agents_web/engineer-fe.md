@@ -14,7 +14,7 @@ tools:
   todowrite: true
   todoread: true
   list: true
-  question: true
+  question: false
   patch: true
   skill: true
 permission:

@@ -8,7 +8,7 @@ tools:
   grep: true
   glob: true
   list: true
-  question: true
+  question: false
   skill: true
   write: false
   edit: false

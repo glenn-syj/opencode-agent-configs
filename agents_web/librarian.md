@@ -12,7 +12,7 @@ tools:
   write: true
   edit: true
   list: true
-  question: true
+  question: false
   patch: false
   skill: true
   task: true
