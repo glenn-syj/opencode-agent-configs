@@ -1,0 +1,21 @@
+version: "1.0.0"
+last_updated: "2026-02-09"
+
+format: "{type}: {description}"
+
+rules:
+  max_length: 72
+  body_required: false
+  scope: optional
+
+allowed_types:
+  - fix
+  - feat
+  - refactor
+  - docs
+  - test
+  - chore
+  - perf
+  - build
+  - ci
+  - hotfix

@@ -1,0 +1,14 @@
+version: "1.0.0"
+last_updated: "2026-02-09"
+
+examples:
+  - "fix: resolve auth timeout"
+  - "feat: add dark mode"
+  - "refactor: simplify middleware"
+  - "docs: update README"
+  - "test: add unit tests for auth"
+  - "chore: update dependencies"
+  - "perf: optimize database queries"
+  - "build: update webpack config"
+  - "ci: add github actions workflow"
+  - "hotfix: fix critical security vulnerability"
