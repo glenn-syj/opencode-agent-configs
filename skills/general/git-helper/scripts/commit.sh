@@ -6,6 +6,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA_DIR="$(dirname "$SCRIPT_DIR")/data"
+CACHE_SCRIPT="${SCRIPT_DIR}/cache.sh"
 CONVENTION_FILE="${DATA_DIR}/convention.yaml"
 
 show_help() {
@@ -21,11 +22,13 @@ Options:
     --help, -h       Show this help message
     --dry-run        Show what would be committed without committing
     --validate       Validate commit message format against convention.yaml
+    --clear-cache    Clear YAML parsing cache
 
 Examples:
     $0 "fix: resolve database connection timeout"
     $0 --dry-run "feat: add user authentication"
     $0 --validate "chore: update dependencies"
+    $0 --clear-cache
 
 EOF
 }
@@ -46,7 +49,30 @@ check_staged() {
     fi
 }
 
+has_python() {
+    command -v python3 >/dev/null 2>&1
+}
+
+has_cache() {
+    [[ -x "$CACHE_SCRIPT" ]]
+}
+
 get_format() {
+    if has_cache; then
+        local cached_data
+        cached_data=$("$CACHE_SCRIPT" get_cached_data "$CONVENTION_FILE" 2>/dev/null)
+        if [[ -n "$cached_data" ]]; then
+            python3 -c "
+import json
+import sys
+
+data = json.load(sys.stdin)
+print(data.get('format', '{type}: {description}'))
+" <<< "$cached_data"
+            return
+        fi
+    fi
+    
     python3 -c "
 import yaml
 with open('$CONVENTION_FILE', 'r') as f:
@@ -56,6 +82,22 @@ with open('$CONVENTION_FILE', 'r') as f:
 }
 
 get_allowed_types() {
+    if has_cache; then
+        local cached_data
+        cached_data=$("$CACHE_SCRIPT" get_cached_data "$CONVENTION_FILE" 2>/dev/null)
+        if [[ -n "$cached_data" ]]; then
+            python3 -c "
+import json
+import sys
+
+data = json.load(sys.stdin)
+types = data.get('allowed_types', [])
+print(' '.join(sorted(types)))
+" <<< "$cached_data"
+            return
+        fi
+    fi
+    
     python3 -c "
 import yaml
 with open('$CONVENTION_FILE', 'r') as f:
@@ -155,6 +197,14 @@ main() {
             --validate)
                 mode="validate"
                 shift
+                ;;
+            --clear-cache)
+                if has_cache; then
+                    "$CACHE_SCRIPT" --clear
+                else
+                    echo "Cache script not found or not executable"
+                fi
+                exit 0
                 ;;
             -*)
                 echo "Unknown option: $1" >&2

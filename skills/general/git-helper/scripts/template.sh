@@ -6,6 +6,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA_DIR="$(dirname "$SCRIPT_DIR")/data"
+CACHE_SCRIPT="${SCRIPT_DIR}/cache.sh"
 CONVENTION_FILE="${DATA_DIR}/convention.yaml"
 EXAMPLES_FILE="${DATA_DIR}/examples.yaml"
 
@@ -20,6 +21,7 @@ Options:
     --allowed       Show allowed types from convention.yaml
     --examples      Show examples from examples.yaml
     --edit-examples Open examples.yaml for editing (agent parses and edits)
+    --clear-cache   Clear YAML parsing cache
     --help          Show this help message
 
 Examples:
@@ -27,6 +29,7 @@ Examples:
     $0 --allowed
     $0 --examples
     $0 --edit-examples
+    $0 --clear-cache
 
 EOF
 }
@@ -35,10 +38,43 @@ has_python() {
     command -v python3 >/dev/null 2>&1
 }
 
+has_cache() {
+    [[ -x "$CACHE_SCRIPT" ]]
+}
+
+ensure_cache() {
+    if has_cache && [[ -f "$CONVENTION_FILE" ]]; then
+        "$CACHE_SCRIPT" --validate > /dev/null 2>&1
+    fi
+}
+
 show_convention() {
     if [[ ! -f "$CONVENTION_FILE" ]]; then
         echo "Error: convention.yaml not found" >&2
         exit 1
+    fi
+    
+    if has_cache; then
+        local cached_data
+        cached_data=$("$CACHE_SCRIPT" get_cached_data "$CONVENTION_FILE" 2>/dev/null)
+        if [[ -n "$cached_data" ]]; then
+            python3 -c "
+import json
+import sys
+
+data = json.load(sys.stdin)
+
+print('Format:')
+print('  ' + data.get('format', '{type}: {description}'))
+print('')
+
+print('Rules:')
+rules = data.get('rules', {})
+for key, value in rules.items():
+    print(f'  {key}: {value}')
+" <<< "$cached_data"
+            return
+        fi
     fi
     
     if has_python; then
@@ -65,6 +101,25 @@ show_allowed_types() {
         exit 1
     fi
     
+    if has_cache; then
+        local cached_data
+        cached_data=$("$CACHE_SCRIPT" get_cached_data "$CONVENTION_FILE" 2>/dev/null)
+        if [[ -n "$cached_data" ]]; then
+            python3 -c "
+import json
+import sys
+
+data = json.load(sys.stdin)
+
+types = data.get('allowed_types', [])
+print('Allowed Types:')
+for t in types:
+    print(f'  - {t}')
+" <<< "$cached_data"
+            return
+        fi
+    fi
+    
     if has_python; then
         python3 -c "
 import yaml
@@ -83,6 +138,25 @@ show_examples() {
     if [[ ! -f "$EXAMPLES_FILE" ]]; then
         echo "Error: examples.yaml not found" >&2
         exit 1
+    fi
+    
+    if has_cache; then
+        local cached_data
+        cached_data=$("$CACHE_SCRIPT" get_cached_data "$EXAMPLES_FILE" 2>/dev/null)
+        if [[ -n "$cached_data" ]]; then
+            python3 -c "
+import json
+import sys
+
+data = json.load(sys.stdin)
+
+examples = data.get('examples', [])
+print('Examples:')
+for e in examples:
+    print(f'  - {e}')
+" <<< "$cached_data"
+            return
+        fi
     fi
     
     if has_python; then
@@ -131,6 +205,10 @@ main() {
                 cmd="edit-examples"
                 shift
                 ;;
+            --clear-cache)
+                cmd="clear-cache"
+                shift
+                ;;
             --help|-h)
                 show_help
                 exit 0
@@ -155,6 +233,13 @@ main() {
             ;;
         edit-examples)
             edit_examples
+            ;;
+        clear-cache)
+            if has_cache; then
+                "$CACHE_SCRIPT" --clear
+            else
+                echo "Cache script not found or not executable"
+            fi
             ;;
     esac
 }
