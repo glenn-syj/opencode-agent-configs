@@ -68,7 +68,6 @@ Run this command:
 
 ```bash
 echo "hello"
-```
 
 ## Examples
 
