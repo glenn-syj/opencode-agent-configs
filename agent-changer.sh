@@ -112,7 +112,7 @@ show_location_menu() {
         echo -e "${BLUE}=== OpenCode Agent Config Changer ===${NC}"
         echo ""
         echo "1. Project agents   (.opencode/agents/)"
-        echo "2. Global agents   (~/.opencode/agents/)"
+        echo "2. Global agents   (~/.config/opencode/agent)"
         echo "3. Custom location (specify path)"
         echo "4. Quit"
         echo ""
@@ -160,7 +160,7 @@ select_project_agents() {
 # Function to select global agents directory
 select_global_agents() {
     # Expand ~/ to home directory
-    local global_dir="~/.opencode/agents"
+    local global_dir="~/.config/opencode/agent"
     local expanded_dir
     
     # Expand the tilde
