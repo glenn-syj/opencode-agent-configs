@@ -14,7 +14,11 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
+
+# Global array for batch selection
+declare -a SELECTED_AGENTS=()
 
 # Function to get agent name from filename
 get_agent_name() {
@@ -54,40 +58,6 @@ get_temperature() {
     sed -n '/^---$/,/^---$/p' "$file" | grep "^temperature:" | head -1 | sed 's/^temperature: *//'
 }
 
-# Function to get tools as formatted string
-get_tools() {
-    local file="$1"
-    # Extract tools section and format as comma-separated list
-    sed -n '/^---$/,/^---$/p' "$file" | sed -n '/^tools:/,/^[^ ]/p' | grep -E "^\s+[a-z]+:" | sed 's/.*^\([a-z]\+\).*/\1/' | tr '\n' ',' | sed 's/,$//'
-}
-
-# Function to display agent info
-display_agent_info() {
-    local agent_name="$1"
-    local agent_file="$AGENTS_DIR/${agent_name}.md"
-    
-    if [[ ! -f "$agent_file" ]]; then
-        echo -e "${RED}Error: Agent file not found: $agent_file${NC}"
-        return 1
-    fi
-    
-    local description mode model temperature tools
-    
-    description=$(get_description "$agent_file")
-    mode=$(get_mode "$agent_file")
-    model=$(get_model "$agent_file")
-    temperature=$(get_temperature "$agent_file")
-    tools=$(get_tools "$agent_file")
-    
-    echo ""
-    echo -e "${CYAN}=== ${agent_name} ===${NC}"
-    echo -e "Description: ${description}"
-    echo -e "Mode: ${mode}"
-    echo -e "Model: ${model}"
-    echo -e "Temperature: ${temperature}"
-    echo -e "Tools: ${tools}"
-}
-
 # Function to update model in YAML
 update_model() {
     local agent_file="$1"
@@ -119,6 +89,20 @@ validate_temperature() {
     result=$(echo "$temp_val >= 0.0 && $temp_val <= 2.0" | bc -l)
     
     [[ "$result" -eq 1 ]]
+}
+
+# Function to get all agents as sorted array
+get_all_agents() {
+    local agents=()
+    for file in "$AGENTS_DIR"/*.md; do
+        if [[ -f "$file" ]]; then
+            agents+=("$(get_agent_name "$file")")
+        fi
+    done
+    
+    # Sort agents alphabetically
+    IFS=$'\n' sorted_agents=($(sort <<<"${agents[*]}")); unset IFS
+    echo "${sorted_agents[@]}"
 }
 
 # Function to display location selection menu
@@ -164,7 +148,7 @@ select_project_agents() {
     if [[ -d "$project_dir" ]]; then
         AGENTS_DIR="$(cd "$project_dir" && pwd)"
         echo -e "${GREEN}Using project agents: $AGENTS_DIR${NC}"
-        show_main_menu
+        show_agent_selector
     else
         echo -e "${RED}Error: Project agents directory not found: $project_dir${NC}"
         echo -e "${YELLOW}This directory does not exist in the current location.${NC}"
@@ -185,7 +169,7 @@ select_global_agents() {
     if [[ -d "$expanded_dir" ]]; then
         AGENTS_DIR="$expanded_dir"
         echo -e "${GREEN}Using global agents: $AGENTS_DIR${NC}"
-        show_main_menu
+        show_agent_selector
     else
         echo -e "${RED}Error: Global agents directory not found: $expanded_dir${NC}"
         echo -e "${YELLOW}This directory does not exist in your home directory.${NC}"
@@ -224,11 +208,11 @@ select_custom_location() {
     
     AGENTS_DIR="$expanded_path"
     echo -e "${GREEN}Using custom location: $AGENTS_DIR${NC}"
-    show_main_menu
+    show_agent_selector
 }
 
-# Function to display main menu
-show_main_menu() {
+# Function to display agent selector with checkboxes
+show_agent_selector() {
     # Check if agents directory is set
     if [[ -z "$AGENTS_DIR" ]]; then
         echo -e "${RED}Error: No agents directory selected.${NC}"
@@ -241,144 +225,217 @@ show_main_menu() {
         return 1
     fi
     
+    # Get list of agent files
+    local agents=()
+    for file in "$AGENTS_DIR"/*.md; do
+        if [[ -f "$file" ]]; then
+            agents+=("$(get_agent_name "$file")")
+        fi
+    done
+    
+    # Check if any agents found
+    if [[ ${#agents[@]} -eq 0 ]]; then
+        echo -e "${YELLOW}No agent configuration files found in this directory.${NC}"
+        echo ""
+        echo "Press Enter to return to location selection..."
+        read -r
+        return 1
+    fi
+    
+    # Sort agents alphabetically
+    IFS=$'\n' sorted_agents=($(sort <<<"${agents[*]}")); unset IFS
+    agents=("${sorted_agents[@]}")
+    
+    # Reset selection - start with first two selected (engineer-be, engineer-fe pattern)
+    SELECTED_AGENTS=()
+    for agent in "${agents[@]}"; do
+        if [[ "$agent" == "engineer-be" ]] || [[ "$agent" == "engineer-fe" ]]; then
+            SELECTED_AGENTS+=("$agent")
+        fi
+    done
+    # If no matching agents, start with empty selection
+    if [[ ${#SELECTED_AGENTS[@]} -eq 0 ]]; then
+        SELECTED_AGENTS=()
+    fi
+    
     while true; do
         echo ""
         echo -e "${BLUE}=== OpenCode Agent Config Changer ===${NC}"
         echo -e "${CYAN}Location: ${AGENTS_DIR}${NC}"
         echo ""
-        echo -e "${YELLOW}Available agents:${NC}"
+        echo -e "${YELLOW}Select agents:${NC}"
+        echo ""
         
-        # Get list of agent files
-        local agents=()
-        for file in "$AGENTS_DIR"/*.md; do
-            if [[ -f "$file" ]]; then
-                agents+=("$(get_agent_name "$file")")
-            fi
-        done
-        
-        # Check if any agents found
-        if [[ ${#agents[@]} -eq 0 ]]; then
-            echo -e "${YELLOW}No agent configuration files found in this directory.${NC}"
-            echo ""
-            echo "Press Enter to return to location selection..."
-            read -r
-            return 1
-        fi
-        
-        # Sort agents alphabetically
-        IFS=$'\n' sorted_agents=($(sort <<<"${agents[*]}")); unset IFS
-        
-        # Display numbered list
+        # Display agents with checkboxes
         local count=1
-        for agent in "${sorted_agents[@]}"; do
-            echo "  $count. $agent"
+        for agent in "${agents[@]}"; do
+            local is_selected=false
+            for sel in "${SELECTED_AGENTS[@]}"; do
+                if [[ "$sel" == "$agent" ]]; then
+                    is_selected=true
+                    break
+                fi
+            done
+            
+            if [[ "$is_selected" == true ]]; then
+                echo -e "  ${GREEN}[x]${NC} $count. $agent"
+            else
+                echo -e "  ${RED}[ ]${NC} $count. $agent"
+            fi
             ((count++))
         done
         
         echo ""
-        echo -e "${YELLOW}Select agent [1-${#sorted_agents[@]}]: ${NC}"
-        read -r selection
+        echo -e "${MAGENTA}Commands: a=all, n=none, d=done, q=quit${NC}"
+        echo -e "${YELLOW}Select: ${NC}"
+        read -r input
         
-        # Validate selection
-        if ! [[ "$selection" =~ ^[0-9]+$ ]] || [[ "$selection" -lt 1 ]] || [[ "$selection" -gt ${#sorted_agents[@]} ]]; then
-            echo -e "${RED}Invalid selection. Please enter a number between 1 and ${#sorted_agents[@]}${NC}"
-            continue
-        fi
-        
-        local selected_agent="${sorted_agents[$((selection-1))]}"
-        show_agent_menu "$selected_agent"
-    done
-}
-
-# Function to display agent options menu
-show_agent_menu() {
-    local agent_name="$1"
-    local agent_file="$AGENTS_DIR/${agent_name}.md"
-    
-    while true; do
-        display_agent_info "$agent_name"
-        
-        echo ""
-        echo -e "${YELLOW}Options:${NC}"
-        echo "  1. Change model"
-        echo "  2. Change temperature"
-        echo "  3. Back to location selection"
-        echo "  4. Quit"
-        echo ""
-        echo -e "${YELLOW}Select option: ${NC}"
-        read -r option
-        
-        case "$option" in
-            1)
-                change_model "$agent_name"
+        # Handle commands
+        case "$input" in
+            a|all)
+                SELECTED_AGENTS=()
+                for agent in "${agents[@]}"; do
+                    SELECTED_AGENTS+=("$agent")
+                done
                 ;;
-            2)
-                change_temperature "$agent_name"
+            n|none)
+                SELECTED_AGENTS=()
                 ;;
-            3)
-                return 0
-                ;;
-            4)
+            q|quit)
                 echo -e "${GREEN}Goodbye!${NC}"
                 exit 0
                 ;;
+            d|done)
+                if [[ ${#SELECTED_AGENTS[@]} -eq 0 ]]; then
+                    echo -e "${RED}No agents selected. Please select at least one agent.${NC}"
+                    continue
+                fi
+                apply_changes "${agents[@]}"
+                # After applying changes, re-show the selector
+                ;;
             *)
-                echo -e "${RED}Invalid option. Please try again.${NC}"
+                # Try to parse as selection
+                if [[ -n "$input" ]]; then
+                    local new_selection=()
+                    local valid=true
+                    
+                    IFS=',' read -ra parts <<< "$input"
+                    
+                    for part in "${parts[@]}"; do
+                        # Check for range (e.g., 1-3)
+                        if [[ "$part" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+                            local start="${BASH_REMATCH[1]}"
+                            local end="${BASH_REMATCH[2]}"
+                            
+                            if [[ "$start" -le "$end" ]] && [[ "$start" -ge 1 ]] && [[ "$end" -le ${#agents[@]} ]]; then
+                                for ((i=start; i<=end; i++)); do
+                                    new_selection+=("${agents[$((i-1))]}")
+                                done
+                            else
+                                valid=false
+                                break
+                            fi
+                        # Single number
+                        elif [[ "$part" =~ ^[0-9]+$ ]]; then
+                            local num="$part"
+                            if [[ "$num" -ge 1 ]] && [[ "$num" -le ${#agents[@]} ]]; then
+                                new_selection+=("${agents[$((num-1))]}")
+                            else
+                                valid=false
+                                break
+                            fi
+                        else
+                            valid=false
+                            break
+                        fi
+                    done
+                    
+                    if [[ "$valid" == true ]] && [[ ${#new_selection[@]} -gt 0 ]]; then
+                        SELECTED_AGENTS=("${new_selection[@]}")
+                    else
+                        echo -e "${RED}Invalid selection. Use numbers like: 1,3,5 or 1-3${NC}"
+                    fi
+                fi
                 ;;
         esac
     done
 }
 
-# Function to change model
-change_model() {
-    local agent_name="$1"
-    local agent_file="$AGENTS_DIR/${agent_name}.md"
-    local current_model
-    
-    current_model=$(get_model "$agent_file")
+# Function to apply changes to selected agents
+apply_changes() {
+    local -a agents=("$@")
     
     echo ""
-    echo -e "${YELLOW}Current model: ${current_model}${NC}"
-    echo -e "${YELLOW}Enter new model (or press Enter to cancel): ${NC}"
+    echo -e "Selected: $(IFS=,; echo "${SELECTED_AGENTS[*]}") (${#SELECTED_AGENTS[@]} agents)"
+    echo ""
+    echo -e "${YELLOW}Apply changes to ${#SELECTED_AGENTS[@]} agents:${NC}"
+    echo ""
+    
+    # Ask for new model
+    echo -e "${CYAN}Model [press Enter to skip]: ${NC}"
     read -r new_model
     
-    if [[ -z "$new_model" ]]; then
-        echo -e "${YELLOW}Cancelled.${NC}"
-        return
-    fi
-    
-    # Update the model
-    update_model "$agent_file" "$new_model"
-    echo -e "${GREEN}Model updated successfully!${NC}"
-}
-
-# Function to change temperature
-change_temperature() {
-    local agent_name="$1"
-    local agent_file="$AGENTS_DIR/${agent_name}.md"
-    local current_temp
-    
-    current_temp=$(get_temperature "$agent_file")
-    
-    echo ""
-    echo -e "${YELLOW}Current temperature: ${current_temp}${NC}"
-    echo -e "${YELLOW}Enter new temperature (0.0-2.0, or press Enter to cancel): ${NC}"
+    # Ask for new temperature
+    echo -e "${CYAN}Temperature [press Enter to skip]: ${NC}"
     read -r new_temp
     
-    if [[ -z "$new_temp" ]]; then
-        echo -e "${YELLOW}Cancelled.${NC}"
+    # Validate temperature if entered
+    if [[ -n "$new_temp" ]]; then
+        if ! validate_temperature "$new_temp"; then
+            echo -e "${RED}Invalid temperature. Must be a number between 0.0 and 2.0${NC}"
+            return 1
+        fi
+    fi
+    
+    # Check if anything will change
+    if [[ -z "$new_model" ]] && [[ -z "$new_temp" ]]; then
+        echo -e "${YELLOW}No changes specified. Returning to agent selection.${NC}"
         return
     fi
     
-    # Validate temperature
-    if ! validate_temperature "$new_temp"; then
-        echo -e "${RED}Invalid temperature. Must be a number between 0.0 and 2.0${NC}"
-        return 1
-    fi
+    # Apply changes to all selected agents
+    local -a updated_agents=()
+    local -a change_summaries=()
     
-    # Update the temperature
-    update_temperature "$agent_file" "$new_temp"
-    echo -e "${GREEN}Temperature updated successfully!${NC}"
+    for agent in "${SELECTED_AGENTS[@]}"; do
+        local agent_file="$AGENTS_DIR/${agent}.md"
+        
+        if [[ -f "$agent_file" ]]; then
+            local changes=()
+            local summary_parts=()
+            
+            if [[ -n "$new_model" ]]; then
+                update_model "$agent_file" "$new_model"
+                changes+=("model=$new_model")
+                summary_parts+=("model=$new_model")
+            fi
+            
+            if [[ -n "$new_temp" ]]; then
+                update_temperature "$agent_file" "$new_temp"
+                changes+=("temp=$new_temp")
+                summary_parts+=("temp=$new_temp")
+            fi
+            
+            if [[ ${#changes[@]} -gt 0 ]]; then
+                updated_agents+=("$agent")
+                change_summaries+=("$(IFS=,; echo "${summary_parts[*]}")")
+            fi
+        fi
+    done
+    
+    # Display summary
+    echo ""
+    if [[ ${#updated_agents[@]} -gt 0 ]]; then
+        echo -e "${GREEN}Updated ${#updated_agents[@]} agents${NC}"
+        
+        local count=0
+        for agent in "${updated_agents[@]}"; do
+            echo -e "  - ${agent}: ${change_summaries[$count]}"
+            ((count++))
+        done
+    else
+        echo -e "${YELLOW}No changes were made.${NC}"
+    fi
 }
 
 # Main function
