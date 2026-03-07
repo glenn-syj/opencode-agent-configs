@@ -105,6 +105,33 @@ get_all_agents() {
     echo "${sorted_agents[@]}"
 }
 
+# Function to display usage instructions
+show_usage_instructions() {
+    echo ""
+    echo -e "${BLUE}=== HOW TO SELECT AGENTS ===${NC}"
+    echo ""
+    echo -e "${GREEN}Selection methods:${NC}"
+    echo "  1,2,3        - Select single agents by number"
+    echo "  1,3,5       - Select multiple specific agents"
+    echo "  1-5         - Select a range of agents"
+    echo "  1,3-5,7     - Combine ranges and single numbers"
+    echo ""
+    echo -e "${GREEN}Commands:${NC}"
+    echo "  a / all     - Select ALL agents"
+    echo "  n / none    - Deselect all agents"
+    echo "  d / done    - Confirm selection and apply changes"
+    echo "  q / quit    - Exit the script"
+    echo ""
+    echo -e "${YELLOW}Examples:${NC}"
+    echo "  1           - Select agent #1 only"
+    echo "  1,2,3       - Select agents #1, #2, and #3"
+    echo "  1-4         - Select agents #1 through #4"
+    echo "  a           - Select all available agents"
+    echo ""
+    echo -e "${CYAN}Press Enter to continue...${NC}"
+    read -r
+}
+
 # Function to display location selection menu
 show_location_menu() {
     while true; do
@@ -246,17 +273,11 @@ show_agent_selector() {
     IFS=$'\n' sorted_agents=($(sort <<<"${agents[*]}")); unset IFS
     agents=("${sorted_agents[@]}")
     
-    # Reset selection - start with first two selected (engineer-be, engineer-fe pattern)
+    # Reset selection - start with all unchecked
     SELECTED_AGENTS=()
-    for agent in "${agents[@]}"; do
-        if [[ "$agent" == "engineer-be" ]] || [[ "$agent" == "engineer-fe" ]]; then
-            SELECTED_AGENTS+=("$agent")
-        fi
-    done
-    # If no matching agents, start with empty selection
-    if [[ ${#SELECTED_AGENTS[@]} -eq 0 ]]; then
-        SELECTED_AGENTS=()
-    fi
+    
+    # Show usage instructions
+    show_usage_instructions
     
     while true; do
         echo ""
@@ -286,7 +307,7 @@ show_agent_selector() {
         done
         
         echo ""
-        echo -e "${MAGENTA}Commands: a=all, n=none, d=done, q=quit${NC}"
+        echo -e "${MAGENTA}Commands: a=all, n=none, d=done, q=quit (or enter numbers)${NC}"
         echo -e "${YELLOW}Select: ${NC}"
         read -r input
         
