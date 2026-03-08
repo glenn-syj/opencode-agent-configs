@@ -9,11 +9,15 @@ opencode-agent-configs/
 ├── README.md
 ├── LICENSE
 ├── .gitignore
-├── agents_web/              # Agent package for web development workflows
-└── skills/general/          # General-purpose skills
-    ├── markdown-structure-to-yaml/
-    ├── ask-user-question/
-    └── git-helper/
+├── agent_sets/                  # Agent configuration packages
+│   └── web/                    # Web development agent package
+├── skills/                      # Reusable skills for agents
+│   └── general/                # General-purpose skills
+│       ├── markdown-structure-to-yaml/
+│       ├── ask-user-question/
+│       └── git-helper/
+├── agent-config-applier.sh      # Interactive script for applying configurations
+└── agent-changer.sh             # Reference script for location selection patterns
 ```
 
 ## Overview
@@ -22,10 +26,11 @@ This repository provides a collection of agent configurations and skills for Ope
 
 - **Agent Packages** - Complete sets of coordinated agents for specific workflow types
 - **Skill Packages** - Reusable capabilities available to any agent
+- **Configuration Tools** - Scripts for managing agent configurations
 
 ## Agent Packages
 
-### agents_web
+### agent_sets/web
 
 A comprehensive multi-agent system designed for web development workflows with orchestrator-based coordination.
 
@@ -45,6 +50,34 @@ A comprehensive multi-agent system designed for web development workflows with o
 - **markdown-structure-to-yaml** - Extract markdown document structure as YAML metadata for token-efficient analysis
 - **ask-user-question** - Ask users questions via the UI for clarification and preferences
 - **git-helper** - Git commit message assistance with YAML-based flexible commit format
+
+## Configuration Tools
+
+### agent-config-applier.sh
+
+An interactive script for applying agent configurations to various locations.
+
+**Features:**
+- Location selection: project, global, or custom path
+- Agent configuration package application (total replace/overwrite)
+- Skill management with merge/add/overwrite options
+- Selective application of specific agents or all agents
+- Skill selection from the skills folder
+
+**Usage:**
+```bash
+./agent-config-applier.sh
+```
+
+The script will guide you through:
+1. Selecting target location (project/global/custom)
+2. Choosing an agent package from agent_sets/
+3. Selecting which agents to apply
+4. Managing skills with configurable merge strategies
+
+### agent-changer.sh
+
+Reference script demonstrating location selection patterns (project/global/custom path handling). Used as a reference implementation for location selection logic.
 
 ## Workflow System
 
@@ -90,9 +123,24 @@ A comprehensive multi-agent system designed for web development workflows with o
 
 ## Usage Instructions
 
-### Basic Setup
+### Using agent-config-applier.sh (Recommended)
 
-1. Copy the desired agent package directory (e.g., `agents_web/`) to your OpenCode configuration location
+1. Run the configuration applier script:
+   ```bash
+   ./agent-config-applier.sh
+   ```
+
+2. Follow the interactive prompts to:
+   - Choose installation location (project/global/custom)
+   - Select agent package to apply
+   - Choose which agents to include
+   - Configure skill management options
+
+3. Restart OpenCode to load the new configuration
+
+### Manual Setup
+
+1. Copy the desired agent package directory (e.g., `agent_sets/web/`) to your OpenCode configuration location
 2. Ensure OpenCode-compatible API access is configured
 3. Set up appropriate permissions and tool access according to agent specifications
 4. Start OpenCode and select the primary agent for your workflow
